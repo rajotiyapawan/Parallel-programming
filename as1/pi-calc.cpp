@@ -277,7 +277,7 @@ int main(int argc, char *args[]){
 	out.close();
 
 	//gp << "set xrange [0:10] \n";
-	gp << "plot \'output.txt\' every ::1 u 1:2 w l title \'Seq\', \'output.txt\' every ::1 u 1:2 w l title \'Parallel\'" <<endl;
+	gp << "plot \'output.txt\' every ::1 u 1:2 w l title \'Seq\', \'output.txt\' every ::1 u 1:3 w l title \'Parallel\'" <<endl;
 
 	return 0;
 }
