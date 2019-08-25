@@ -27,6 +27,9 @@
 
 #define nTimes 1000*1000*100
 
+#define GET_TIME(x);	if (clock_gettime(CLOCK_MONOTONIC, &(x)) < 0)\
+			{ perror("clock_gettime():"); exit(EXIT_FAILURE);} 
+
 const double radius = 1;
 double pi;
 int circle_points;
@@ -40,9 +43,19 @@ using namespace std;
 
 //Calculate time from begin to end for the computations
 
-float time_elapsed(clock_t t1, clock_t t2){
-	float t = (float)(t2 - t1)/CLOCKS_PER_SEC;
-	return t;
+float elapsed_time_msec(struct timespec *begin, struct timespec *end, long *sec,long *nsec)
+{
+  if (end->tv_nsec < begin->tv_nsec) 
+  {
+    *nsec = 1000000000 - (begin->tv_nsec - end->tv_nsec);
+    *sec = end->tv_sec - begin->tv_sec -1;
+  }
+  else 
+  {
+    *nsec = end->tv_nsec - begin->tv_nsec;
+    *sec = end->tv_sec - begin->tv_sec;
+  }
+  return (float) (*sec) * 1000 + ((float) (*nsec)) / 1000000;
 }
 
 //Checking whether the points generated are inside the circle
@@ -57,14 +70,19 @@ bool in_circle(double x, double y){
 
 //Sequential inplementation
 
-double pi_serial(){
+float pi_serial(){
 	pi = 0;
 	circle_points = 0;
 	double x,y;
 
 	srand(time(NULL));
 
-	clock_t t1 = clock();
+	//time measurement
+  	struct timespec t1, t2;
+  	long sec, nsec;
+  	float time_elapsed; 
+
+  	GET_TIME(t1);
 
 	for(int i=0; i<nTimes; i++){
 		x = (double)random()/(double)RAND_MAX;
@@ -75,11 +93,15 @@ double pi_serial(){
 
 	pi = 4* ((double)circle_points/(double)nTimes);
 
-	clock_t t2 = clock();
+	GET_TIME(t2);
 
-	cout << "Time elapsed in seconds = " << time_elapsed(t1,t2) <<" " << endl;
+	time_elapsed = elapsed_time_msec(&t1,&t2,&sec,&nsec);
 
-	return pi;
+	cout << "Pi (seq) = " << pi << endl;
+
+	cout << "Time elapsed in ms = " << time_elapsed << endl;
+
+	return time_elapsed;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -90,6 +112,7 @@ double pi_serial(){
 
 void* pi_thread(void* arg){
 	double x,y;
+	double temp_pi = 0;
 
 	//different seed for random generator for each thread
 	unsigned int* seed_for_rand = (unsigned int *)&arg;
@@ -111,6 +134,9 @@ void* pi_thread(void* arg){
 	pthread_mutex_lock(&lock);
 	circle_points += thread_circle_points;
 	pthread_mutex_unlock(&lock);
+	
+	//temp_pi = (double)thread_circle_points;
+	
 	pthread_exit(0);
 }
 
@@ -121,7 +147,12 @@ float pi_parallel(){
 	circle_points = 0;
 	pthread_t threads[num_threads];
 
-	clock_t t1 = clock();
+	//time measurement
+  	struct timespec t1, t2;
+  	long sec, nsec;
+  	float total_pthread_time; 
+  	
+  	GET_TIME(t1);
 
 	//creating required number of threads
 	for(int i=0; i<num_threads; i++){
@@ -133,20 +164,26 @@ float pi_parallel(){
 
 	//Collecting all threads back to the main
 	for(int i=0; i<num_threads; i++){
+		//void *returnvalue;
 		pthread_join(threads[i], NULL);
+		//circle_points += *(double *)returnvalue;
 	}
 
 	//calculating the value of pi
 
 	pi = 4* ((double)circle_points/(double)nTimes);
 
-	clock_t t2 = clock();
+	//clock_t t2 = clock();
 
-	float t = time_elapsed(t1,t2);
+	GET_TIME(t2);
+  
+  	total_pthread_time = elapsed_time_msec(&t1,&t2,&sec,&nsec);
+  	cout << "Pi (pthreads) = " << pi << endl;
+  	cout << "Time elapsed in ms = " << total_pthread_time <<endl;
 
-	cout << "Pi calculated = " << pi <<" " << endl;
+	//cout << "Pi calculated = " << pi <<" " << endl;
 
-	return t;
+	return total_pthread_time;
 
 }
 
@@ -167,31 +204,80 @@ int main(int argc, char *args[]){
 
 	Gnuplot gp;
 
-	//vector<pair<double, double> > xy_pts_A;
+	int itr_for_avg = 30;
 
-	cout << pi_serial() << endl;
+	//sequential execution
+	if(argc == 2 && strcmp(args[1],"-s")==0){
+		double seq_time = 0;
 
-	num_threads = 1;
+		for(int i=0;i<itr_for_avg;i++)
+			seq_time += pi_serial();
 
-	for(int i=1; i<70; ){
+		cout << "Avg. Time for Seq. over 30 itrations = " <<seq_time/(double)itr_for_avg<<endl;
+	}
+
+	//Parallel Execution
+
+	else if(argc == 3 && strcmp(args[1],"-p")==0)
+    {
+      double par_time = 0;
+
+      num_threads = atoi(args[2]);
+      
+      for(int i=0;i<itr_for_avg;i++)
+		par_time += pi_parallel();
+      
+      pthread_mutex_destroy(&lock);
+      
+      cout << "Avg. Time for Parallel over 30 itrations = " << par_time/(double)itr_for_avg<<endl;
+    }
+
+    else 
+    {
+      cout << "Please provide valid input arguments" << endl;
+    }
+
+    out << "Pi computed = " << pi <<endl;
+
+	num_threads = 2;
+	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
+
+	num_threads = 4;
+	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
+
+	num_threads = 8;
+	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
+
+	num_threads = 16;
+	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
+
+	num_threads = 32;
+	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
+
+	num_threads = 40;
+	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
+
+	/*for(int i=2; i<40; i = 2*i ){
 		float t = pi_parallel();
+
+		num_threads = i;
 
 		cout <<"time for " <<i <<" threads = " << t << endl <<endl;
 
 		//xy_pts_A.push_back(make_pair(t,i));
 
-		out <<t <<" " << i <<endl;
+		out <<i <<" " << t <<endl;
 
-		num_threads = 2*i;
+		//num_threads = 2*i;
 
-		i = 2*i;
+		//i = 2*i;
 	
-	}
+	}*/
 
 	out.close();
 
 	//gp << "set xrange [0:10] \n";
-	gp << "plot \'output.txt\' u 1:2 w l" <<endl;
+	gp << "plot \'output.txt\' every ::1 u 1:2 w l title \'Seq\', \'output.txt\' every ::1 u 1:2 w l title \'Parallel\'" <<endl;
 
 	return 0;
 }
