@@ -1,7 +1,7 @@
 /*
 	Author: Pawan Rajotiya, Computer Science Department, IIT Delhi
 	Program: Monte Carlo PI Calculation sequential and parallel implementations
-
+	
 */
 
 
@@ -200,84 +200,66 @@ void savedata(const string& filename, int data1, float data2){
 
 int main(int argc, char *args[]){
 
-	ofstream out("output.txt");
+	ofstream out("report1.txt");
 
 	Gnuplot gp;
 
 	int itr_for_avg = 30;
 
+	pi_serial();
+
 	//sequential execution
 	if(argc == 2 && strcmp(args[1],"-s")==0){
-		double seq_time = 0;
+		//double seq_time = 0;
 
-		for(int i=0;i<itr_for_avg;i++)
-			seq_time += pi_serial();
+		//for(int i=0;i<itr_for_avg;i++)
+		pi_serial();
 
-		cout << "Avg. Time for Seq. over 30 itrations = " <<seq_time/(double)itr_for_avg<<endl;
+		//cout << "Time for Seq. = " <<seq_time<<endl;
 	}
 
 	//Parallel Execution
 
 	else if(argc == 3 && strcmp(args[1],"-p")==0)
     {
-      double par_time = 0;
+      	//double par_time = 0;
 
-      num_threads = atoi(args[2]);
+      	num_threads = atoi(args[2]);
       
-      for(int i=0;i<itr_for_avg;i++)
-		par_time += pi_parallel();
+      	//for(int i=0;i<itr_for_avg;i++)
+		pi_parallel();
       
-      pthread_mutex_destroy(&lock);
+      	pthread_mutex_destroy(&lock);
       
-      cout << "Avg. Time for Parallel over 30 itrations = " << par_time/(double)itr_for_avg<<endl;
+      	//cout << "Time for Parallel = " << par_time<<endl;
     }
 
-    else 
+    else if(argc == 2 &&strcmp(args[1],"-o")==0)
+    {	
+    	cout <<"generating report1.txt"<<endl;
+
+    	out << "Pi computed = " << pi <<endl;
+
+    	for(int i=2; i<33; i=2*i){
+			num_threads = i;
+			out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
+		}
+
+		
+		num_threads = 40;
+		out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
+
+		out.close();
+		//gp << "set xrange [0:10] \n";
+		//gp << set style 
+		gp << "plot \'report1.txt\' every ::1 u 1:2 w l title \'Seq\', \'report1.txt\' every ::1 u 1:3 w l title \'Parallel\'" <<endl;
+	}
+
+	 else 
     {
       cout << "Please provide valid input arguments" << endl;
     }
-
-    out << "Pi computed = " << pi <<endl;
-
-	num_threads = 2;
-	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
-
-	num_threads = 4;
-	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
-
-	num_threads = 8;
-	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
-
-	num_threads = 16;
-	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
-
-	num_threads = 32;
-	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
-
-	num_threads = 40;
-	out << num_threads <<" " << pi_serial() <<" " << pi_parallel() << endl;
-
-	/*for(int i=2; i<40; i = 2*i ){
-		float t = pi_parallel();
-
-		num_threads = i;
-
-		cout <<"time for " <<i <<" threads = " << t << endl <<endl;
-
-		//xy_pts_A.push_back(make_pair(t,i));
-
-		out <<i <<" " << t <<endl;
-
-		//num_threads = 2*i;
-
-		//i = 2*i;
 	
-	}*/
-
-	out.close();
-
-	//gp << "set xrange [0:10] \n";
-	gp << "plot \'output.txt\' every ::1 u 1:2 w l title \'Seq\', \'output.txt\' every ::1 u 1:3 w l title \'Parallel\'" <<endl;
 
 	return 0;
 }
